@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
   s.author       = { "chenliming" => "chenliming777@qq.com" }
   s.platform     = :ios, "7.0"
   s.ios.deployment_target = "7.0"
-  s.source       = { :git => "git@github.com:davidswi/LFLiveKit.git", :branch => "davids/gpuimage-as-dependency" }
+  s.source       = { :git => "https://github.com/mousetraps/LFLiveKit.git", :branch => "davids/gpuimage-as-dependency" }
   s.source_files  = "LFLiveKit/**/*.{h,m,mm,cpp,c}"
   s.public_header_files = ['LFLiveKit/*.h', 'LFLiveKit/objects/*.h', 'LFLiveKit/configuration/*.h']
 
