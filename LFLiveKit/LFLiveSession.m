@@ -115,6 +115,12 @@
     }
 }
 
+- (void)pushVideo:(nullable CVPixelBufferRef)pixelBuffer timeStamp: (uint64_t)timeStamp {
+    if(self.captureType & LFLiveInputMaskVideo){
+        if (self.uploading) [self.videoEncoder encodeVideoData:pixelBuffer timeStamp:timeStamp];
+    }
+}
+
 - (void)pushAudio:(nullable NSData*)audioData{
     if(self.captureType & LFLiveInputMaskAudio){
         if (self.uploading) [self.audioEncoder encodeAudioData:audioData timeStamp:NOW];
