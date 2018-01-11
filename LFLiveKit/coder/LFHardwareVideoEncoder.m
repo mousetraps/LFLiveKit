@@ -62,11 +62,38 @@
     VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration, (__bridge CFTypeRef)@(_configuration.videoMaxKeyframeInterval/_configuration.videoFrameRate));
     VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_ExpectedFrameRate, (__bridge CFTypeRef)@(_configuration.videoFrameRate));
     VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_AverageBitRate, (__bridge CFTypeRef)@(_configuration.videoBitRate));
-    NSArray *limit = @[@(_configuration.videoBitRate * 1.5/8), @(1)];
-    VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_DataRateLimits, (__bridge CFArrayRef)limit);
+    //
+    // Note: we have disabled setting the DataRateLimits property and are setting the
+    // AllowFrameReordering property to false due to bug AI-1101. The issue was that after upgrading
+    // to iOS 11, plyabck of streams to youtube had a "pulsing" artifact that aligned with the
+    // i-frame rate. We found that this could only be alleviated by changing how we set both of
+    // these properties. This issue does not happen on iOS10, so we assume it is a bug in iOS11.
+    //
+    // Setting AllowFrameReordering to false should not have an impact since we do not intend to
+    // support B-frames. Per Apple's docs, setting DataRateLimits puts a cap on any bitrate spikes
+    // that may go above the average bitrate. In our testing though, iOS appears to treat
+    // DataRateLimits as an indication that the bandwidth used should match AverageBitRate property
+    // EXACTLY. Without DataRateLimits set, the bandwidth used fluctuates around AverageBitRate
+    // while ensuring that the requested average bandwidth is maintained.
+    //
+    // For example, if AverageBitRate is 4Mbps, and DataRateLimits is 6Mbps, then the bandwidth used
+    // will always be 4Mbps. But if DataRateLimits is left unset, then the actual bandwidth used
+    // will vary between 2Mbps and 6Mbps depending on the complexity of the scene and motion (while
+    // maintaining an overall average of 4Mbps). This behavior was consistent across iOS10 and
+    // iOS11.
+    //
+    // Given that setting DataRateLimits appears to cause the compression session to run at 'full
+    // throttle' without any ability to have transient bitrate spikes, and since I-frames themselves
+    // are a miniature bitrate spikes due to their size relative to P-frames, we suspect that there
+    // is a bug in iOS11 which is causing the bitate cap to over-compress the I-frames, which then
+    // causes a noticable periodic artifact in the youtube 360 video player. This agress with other
+    // observations that the periodicity of the artifact always matches the configured I-frame rate.
+    //
+    //NSArray *limit = @[@(_configuration.videoBitRate * 1.5/8), @(1)];
+    //VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_DataRateLimits, (__bridge CFArrayRef)limit);
     VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_RealTime, kCFBooleanTrue);
     VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_Main_AutoLevel);
-    VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_AllowFrameReordering, kCFBooleanTrue);
+    VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_AllowFrameReordering, kCFBooleanFalse);
     VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_H264EntropyMode, kVTH264EntropyMode_CABAC);
     VTCompressionSessionPrepareToEncodeFrames(compressionSession);
 
@@ -75,8 +102,12 @@
 - (void)setVideoBitRate:(NSInteger)videoBitRate {
     if(_isBackGround) return;
     VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_AverageBitRate, (__bridge CFTypeRef)@(videoBitRate));
-    NSArray *limit = @[@(videoBitRate * 1.5/8), @(1)];
-    VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_DataRateLimits, (__bridge CFArrayRef)limit);
+    //
+    // Note: we have disabled setting the DataRateLimits property due to bug AI-1101. See the discussion in
+    // resetCompressionSession for full details.
+    //
+    //NSArray *limit = @[@(videoBitRate * 1.5/8), @(1)];
+    //VTSessionSetProperty(compressionSession, kVTCompressionPropertyKey_DataRateLimits, (__bridge CFArrayRef)limit);
     _currentVideoBitRate = videoBitRate;
 }
 
